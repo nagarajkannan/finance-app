@@ -9,13 +9,23 @@ export interface GoogleProfile {
   picture: string;
 }
 
+function isDev(): boolean {
+  return process.env.NODE_ENV !== "production";
+}
+
 export function googleConfig() {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const clientId = isDev()
+    ? process.env.GOOGLE_CLIENT_ID_DEV || process.env.GOOGLE_CLIENT_ID
+    : process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = isDev()
+    ? process.env.GOOGLE_CLIENT_SECRET_DEV || process.env.GOOGLE_CLIENT_SECRET
+    : process.env.GOOGLE_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
     throw new Error(
-      "GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET are not set — add them to your environment.",
+      isDev()
+        ? "GOOGLE_CLIENT_ID_DEV / GOOGLE_CLIENT_SECRET_DEV are not set — add them to your environment."
+        : "GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET are not set — add them to your environment.",
     );
   }
   return { clientId, clientSecret };
@@ -24,9 +34,13 @@ export function googleConfig() {
 /**
  * Public origin of the app. Behind a proxy such as Render the request URL is
  * the internal one (localhost:10000), so `APP_URL` wins when it is set.
+ * In `next dev`, `APP_URL_DEV` (typically http://localhost:3000) is used
+ * so Google redirects stay on the local OAuth client.
  */
 export function appBaseUrl(request: Request): string {
-  const configured = process.env.APP_URL?.trim();
+  const configured = (
+    isDev() ? process.env.APP_URL_DEV : process.env.APP_URL
+  )?.trim();
   if (configured) return configured.replace(/\/+$/, "");
 
   const forwardedHost = request.headers.get("x-forwarded-host");

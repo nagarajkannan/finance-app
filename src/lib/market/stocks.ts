@@ -41,8 +41,31 @@ function isIndian(symbol: string): boolean {
   return symbol.endsWith(".NS") || symbol.endsWith(".BO");
 }
 
-function kindOf(quoteType: string | undefined): InstrumentKind {
-  return quoteType === "ETF" ? "etf" : "stock";
+/**
+ * Yahoo lists NSE/BSE ETFs as EQUITY, not ETF. Names and tickers still say
+ * ETF / BeES, so those are what we use to tell them apart from shares.
+ */
+const ETF_TEXT = /\bETF\b|BEES|EXCHANGE[\s-]?TRADED/i;
+
+function looksLikeEtf(quote: SearchQuote & { symbol: string }): boolean {
+  if (quote.quoteType === "ETF") return true;
+  return ETF_TEXT.test(
+    [quote.symbol, quote.shortname, quote.longname].filter(Boolean).join(" "),
+  );
+}
+
+function kindOf(quote: SearchQuote & { symbol: string }): InstrumentKind {
+  return looksLikeEtf(quote) ? "etf" : "stock";
+}
+
+async function yahooQuotes(query: string, limit: number): Promise<SearchQuote[]> {
+  const url = `${SEARCH_URL}?q=${encodeURIComponent(query)}&quotesCount=${limit}&newsCount=0`;
+  const response = await fetch(url, { headers: HEADERS, cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(`The symbol search failed (${response.status}).`);
+  }
+  const body = (await response.json()) as { quotes?: SearchQuote[] };
+  return body.quotes ?? [];
 }
 
 export async function searchStocks(
@@ -50,29 +73,39 @@ export async function searchStocks(
   kind: InstrumentKind,
   limit = 25,
 ): Promise<InstrumentOption[]> {
-  if (!query.trim()) return [];
+  const trimmed = query.trim();
+  if (!trimmed) return [];
 
-  const url = `${SEARCH_URL}?q=${encodeURIComponent(query)}&quotesCount=${limit}&newsCount=0`;
-  const response = await fetch(url, { headers: HEADERS, cache: "no-store" });
-  if (!response.ok) {
-    throw new Error(`The symbol search failed (${response.status}).`);
+  const searches = [trimmed];
+  if (kind === "etf" && !ETF_TEXT.test(trimmed)) {
+    searches.push(`${trimmed} ETF`);
   }
 
-  const body = (await response.json()) as { quotes?: SearchQuote[] };
-  return (body.quotes ?? [])
-    .filter(
-      (quote): quote is SearchQuote & { symbol: string } =>
-        Boolean(quote.symbol) &&
-        isIndian(quote.symbol as string) &&
-        ["EQUITY", "ETF", "MUTUALFUND"].includes(quote.quoteType ?? ""),
-    )
+  const seen = new Set<string>();
+  const quotes: (SearchQuote & { symbol: string })[] = [];
+  for (const term of searches) {
+    for (const quote of await yahooQuotes(term, limit)) {
+      if (
+        !quote.symbol ||
+        seen.has(quote.symbol) ||
+        !isIndian(quote.symbol) ||
+        !["EQUITY", "ETF"].includes(quote.quoteType ?? "")
+      ) {
+        continue;
+      }
+      seen.add(quote.symbol);
+      quotes.push(quote as SearchQuote & { symbol: string });
+    }
+  }
+
+  return quotes
     .map((quote) => ({
-      kind: kindOf(quote.quoteType),
+      kind: kindOf(quote),
       id: quote.symbol,
       name: quote.longname ?? quote.shortname ?? quote.symbol,
       detail: quote.exchDisp ?? quote.exchange ?? "",
     }))
-    .filter((option) => kind !== "etf" || option.kind === "etf")
+    .filter((option) => option.kind === kind)
     .slice(0, limit);
 }
 
