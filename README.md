@@ -21,7 +21,7 @@ Data is stored in Postgres through Prisma, so the same numbers show up on every 
 ### Assets
 - Add, edit, view and delete assets.
 - Guided flow: **Category → Asset type → Asset details**.
-- Categories: Equity, Debt, Real Estate, Commodities, Cash & Savings, Crypto, Alternatives, Other.
+- Categories: Equity, Debt, Real Estate, Commodities, Cash & Savings, Other.
 - Each asset stores name, category, type, institution, invested amount, current value, start date and notes.
 - Update the current value at any time from the asset page; every linked goal recalculates instantly.
 - Shows invested amount, current value, profit / loss, profit / loss % and total asset value.

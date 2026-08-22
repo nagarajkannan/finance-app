@@ -17,10 +17,18 @@ import {
   equityValuesFromDetails,
   type EquityValues,
 } from "@/components/equity-fields";
+import {
+  buildGoldDetails,
+  defaultGoldValues,
+  GoldFields,
+  goldValuesFromDetails,
+  type GoldValues,
+} from "@/components/gold-fields";
 import { Field, Select, TextArea, TextInput } from "@/components/form";
 import { Button, Card } from "@/components/ui";
 import { debtKindForType, valueDebtAsset, type DebtKind } from "@/lib/debt";
 import { equityKindForType, valueEquityAsset } from "@/lib/equity";
+import { goldLotName, isPhysicalGold, valueGoldAsset } from "@/lib/gold";
 import { useStore } from "@/lib/store";
 import { ASSET_CATEGORIES, type Asset, type AssetCategory } from "@/lib/types";
 
@@ -73,6 +81,13 @@ function institutionLabel(categoryId: string, type: string): {
         equityKind === "mutual-fund"
           ? "Example: Groww, Zerodha Coin"
           : "Example: Zerodha, Groww",
+    };
+  }
+  if (isPhysicalGold(categoryId, type)) {
+    return {
+      label: "Jeweller",
+      hint: "Optional",
+      placeholder: "Example: Tanishq, local jeweller",
     };
   }
   if (categoryId === "debt" && type === "Bonds") {
@@ -135,6 +150,13 @@ export function AssetForm({
     if (asset?.equityDetails) return equityValuesFromDetails(asset.equityDetails);
     return defaultEquityValues(initialKind);
   });
+  const [goldValues, setGoldValues] = useState<GoldValues>(() => {
+    if (asset?.goldDetails) return goldValuesFromDetails(asset.goldDetails);
+    if (isPhysicalGold(asset?.categoryId ?? category.id, asset?.type ?? type)) {
+      return defaultGoldValues();
+    }
+    return {};
+  });
   const [error, setError] = useState("");
 
   const selectedCategory =
@@ -144,6 +166,7 @@ export function AssetForm({
   const debtKind =
     baseKind === "fd" && isDepositType(values.type) ? depositKind : baseKind;
   const equityKind = equityKindForType(values.categoryId, values.type);
+  const physicalGold = isPhysicalGold(values.categoryId, values.type);
   const institution = institutionLabel(values.categoryId, values.type);
 
   function set<K extends keyof AssetFormValues>(
@@ -161,10 +184,17 @@ export function AssetForm({
     switchDebtKind(debtKindForType(nextCategoryId, nextType));
     const nextEquityKind = equityKindForType(nextCategoryId, nextType);
     setEquityValues(nextEquityKind ? defaultEquityValues(nextEquityKind) : {});
+    setGoldValues(
+      isPhysicalGold(nextCategoryId, nextType) ? defaultGoldValues() : {},
+    );
   }
 
   const patchEquity = useCallback((patch: EquityValues) => {
     setEquityValues((prev) => applyEquityPatch(prev, patch));
+  }, []);
+
+  const patchGold = useCallback((patch: GoldValues) => {
+    setGoldValues((prev) => ({ ...prev, ...patch }));
   }, []);
 
   async function handleSubmit(event: React.FormEvent) {
@@ -175,10 +205,12 @@ export function AssetForm({
     const debtDetails = debtKind
       ? buildDebtDetails(debtKind, debtValues)
       : undefined;
+    const goldDetails = physicalGold ? buildGoldDetails(goldValues) : undefined;
     const name =
       values.name.trim() ||
       equityDetails?.instrumentName.trim() ||
       (debtDetails?.kind === "bond" ? debtDetails.instrumentName?.trim() : "") ||
+      (goldDetails ? goldLotName(goldDetails, values.notes) : "") ||
       "";
 
     if (!name) {
@@ -190,6 +222,20 @@ export function AssetForm({
             : "Please give this asset a name.",
       );
       return;
+    }
+    if (goldDetails) {
+      if (!(goldDetails.weightGrams > 0)) {
+        setError("Please enter the weight in grams.");
+        return;
+      }
+      if (!goldDetails.purchaseDate) {
+        setError("Please enter the purchase date.");
+        return;
+      }
+      if (!(goldDetails.amountPaid > 0)) {
+        setError("Please enter the amount you paid.");
+        return;
+      }
     }
     if (debtKind === "bond" && debtDetails?.kind === "bond") {
       if (
@@ -224,11 +270,13 @@ export function AssetForm({
       return;
     }
 
-    const valuation = debtDetails
-      ? valueDebtAsset(debtDetails)
-      : equityDetails
-        ? valueEquityAsset(equityDetails)
-        : undefined;
+    const valuation = goldDetails
+      ? valueGoldAsset(goldDetails)
+      : debtDetails
+        ? valueDebtAsset(debtDetails)
+        : equityDetails
+          ? valueEquityAsset(equityDetails)
+          : undefined;
 
     const payload = {
       name,
@@ -241,12 +289,15 @@ export function AssetForm({
       currentValue: valuation
         ? valuation.currentValue
         : toNumber(values.currentValue || values.investedAmount),
-      startDate: debtDetails
-        ? debtDetails.startDate
-        : (equityDetails?.investmentDate ?? values.startDate),
+      startDate: goldDetails
+        ? goldDetails.purchaseDate
+        : debtDetails
+          ? debtDetails.startDate
+          : (equityDetails?.investmentDate ?? values.startDate),
       notes: values.notes.trim(),
       debtDetails,
       equityDetails,
+      goldDetails,
     };
     try {
       if (asset) {
@@ -268,7 +319,7 @@ export function AssetForm({
   return (
     <Card>
       <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
-        {equityKind || debtKind === "bond" ? null : (
+        {equityKind || debtKind === "bond" || physicalGold ? null : (
           <Field label="Asset name" hint="Example: HDFC Flexi Cap Fund">
             <TextInput
               value={values.name}
@@ -337,6 +388,8 @@ export function AssetForm({
             values={equityValues}
             onPatch={patchEquity}
           />
+        ) : physicalGold ? (
+          <GoldFields values={goldValues} onPatch={patchGold} />
         ) : debtKind ? (
           <div className="space-y-4">
             {isDepositType(values.type) ? (
@@ -403,7 +456,11 @@ export function AssetForm({
             rows={3}
             value={values.notes}
             onChange={(e) => set("notes", e.target.value)}
-            placeholder="Anything you want to remember about this asset"
+            placeholder={
+              physicalGold
+                ? "Gold chain, coins, bangles…"
+                : "Anything you want to remember about this asset"
+            }
           />
         </Field>
 

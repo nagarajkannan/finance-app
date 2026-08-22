@@ -1,5 +1,6 @@
 import type { DebtDetails } from "./debt";
 import type { EquityDetails } from "./equity";
+import type { GoldDetails } from "./gold";
 import type { AssetSource } from "./groww/types";
 
 export type AssetCategoryId =
@@ -8,8 +9,6 @@ export type AssetCategoryId =
   | "real-estate"
   | "commodities"
   | "cash"
-  | "crypto"
-  | "alternatives"
   | "other";
 
 export interface AssetCategory {
@@ -33,14 +32,7 @@ export const ASSET_CATEGORIES: AssetCategory[] = [
     name: "Debt",
     description: "Fixed income like deposits and bonds",
     icon: "🏦",
-    types: [
-      "FD / RD",
-      "Bonds",
-      "Government Schemes",
-      "Insurance",
-      "MF / ETF",
-      "Other Debt",
-    ],
+    types: ["FD / RD", "Bonds", "Government Schemes", "Insurance"],
   },
   {
     id: "real-estate",
@@ -70,20 +62,6 @@ export const ASSET_CATEGORIES: AssetCategory[] = [
     types: ["Savings Account", "Other Cash & Savings"],
   },
   {
-    id: "crypto",
-    name: "Crypto",
-    description: "Digital currencies",
-    icon: "🪫",
-    types: ["Cryptocurrency"],
-  },
-  {
-    id: "alternatives",
-    name: "Alternatives",
-    description: "Anything outside the usual options",
-    icon: "🧩",
-    types: ["Other Alternative Investment"],
-  },
-  {
     id: "other",
     name: "Other",
     description: "Your own custom asset",
@@ -110,6 +88,8 @@ export interface Asset {
   debtDetails?: DebtDetails;
   /** Set for funds, shares and ETFs: the holding its value is calculated from. */
   equityDetails?: EquityDetails;
+  /** Set for a physical gold lot: purity, weight and the amount paid. */
+  goldDetails?: GoldDetails;
   /** Set when the asset is synced from a provider such as Groww. */
   source?: AssetSource;
   createdAt: string;

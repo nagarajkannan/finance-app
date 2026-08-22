@@ -19,6 +19,7 @@ function assetData(asset: Asset) {
     notes: asset.notes ?? "",
     debtDetails: (asset.debtDetails ?? Prisma.DbNull) as unknown as Prisma.InputJsonValue,
     equityDetails: (asset.equityDetails ?? Prisma.DbNull) as unknown as Prisma.InputJsonValue,
+    goldDetails: (asset.goldDetails ?? Prisma.DbNull) as unknown as Prisma.InputJsonValue,
     source: (asset.source ?? Prisma.DbNull) as unknown as Prisma.InputJsonValue,
   };
 }

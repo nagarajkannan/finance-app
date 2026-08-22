@@ -31,3 +31,12 @@ export async function fetchQuote(
     `/api/market/quote?kind=${kind}&id=${encodeURIComponent(id)}`,
   );
 }
+
+export async function fetchGoldQuote(purity: string): Promise<{
+  purity: string;
+  pricePerGram: number;
+  asOf: string;
+  market?: string;
+}> {
+  return getJson(`/api/market/gold?purity=${encodeURIComponent(purity)}`);
+}

@@ -17,6 +17,7 @@ import { assetProfitLoss, assetProfitLossPercent } from "@/lib/calculations";
 import { BondCard } from "@/components/bond-card";
 import { DebtFormulaPanel } from "@/components/debt-fields";
 import { EquityCard } from "@/components/equity-card";
+import { GoldCard } from "@/components/gold-card";
 import { valueDebtAsset } from "@/lib/debt";
 import { formatCurrency, formatDate, formatDateTime, formatPercent } from "@/lib/format";
 import { useGrowwSync } from "@/lib/groww/use-groww";
@@ -153,6 +154,8 @@ export function AssetDetail({ assetId }: { assetId: string }) {
         </Card>
       ) : asset.equityDetails ? (
         <EquityCard asset={asset} />
+      ) : asset.goldDetails ? (
+        <GoldCard asset={asset} />
       ) : debtDetails?.kind === "bond" ? (
         <BondCard asset={asset} />
       ) : debtDetails && valuation ? (

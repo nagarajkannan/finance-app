@@ -47,6 +47,7 @@ model Asset {
   notes         String
   debtDetails   Json?
   equityDetails Json?
+  goldDetails    Json?
   source        Json?
   createdAt     DateTime @default(now())
 

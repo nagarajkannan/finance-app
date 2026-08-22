@@ -31,6 +31,10 @@ function sanitizeAssetInput(payload: unknown): Partial<Asset> {
       value.equityDetails !== undefined
         ? (value.equityDetails as Asset["equityDetails"])
         : undefined,
+    goldDetails:
+      value.goldDetails !== undefined
+        ? (value.goldDetails as Asset["goldDetails"])
+        : undefined,
     source: value.source !== undefined ? (value.source as Asset["source"]) : undefined,
     createdAt:
       typeof value.createdAt === "string" ? value.createdAt : new Date().toISOString(),
@@ -75,6 +79,9 @@ export async function POST(request: Request) {
         }),
         ...(payload.equityDetails !== undefined && {
           equityDetails: payload.equityDetails as unknown as Prisma.InputJsonValue,
+        }),
+        ...(payload.goldDetails !== undefined && {
+          goldDetails: payload.goldDetails as unknown as Prisma.InputJsonValue,
         }),
         ...(payload.source !== undefined && {
           source: payload.source as unknown as Prisma.InputJsonValue,
