@@ -1,5 +1,6 @@
 "use client";
 
+import { BondFields } from "@/components/bond-fields";
 import { Field, Select, TextInput } from "@/components/form";
 import { formatCurrency, formatDate } from "@/lib/format";
 import {
@@ -7,6 +8,7 @@ import {
   DEBT_FORMULAS,
   TENURE_UNIT_OPTIONS,
   valueDebtAsset,
+  type BondInterestType,
   type BondPayout,
   type CompoundingFrequency,
   type DebtDetails,
@@ -64,35 +66,7 @@ export const DEBT_FIELDS: Record<DebtKind, FieldSpec[]> = {
     { key: "startDate", label: "First deposit date", input: "date" },
     tenureField("Tenure"),
   ],
-  bond: [
-    {
-      key: "faceValue",
-      label: "Face value per bond (₹)",
-      hint: "Amount repaid at maturity",
-      input: "number",
-    },
-    { key: "quantity", label: "Number of bonds", input: "number" },
-    { key: "buyPrice", label: "Price you paid per bond (₹)", input: "number" },
-    {
-      key: "couponRate",
-      label: "Coupon rate (% a year)",
-      input: "number",
-      placeholder: "8",
-    },
-    {
-      key: "payout",
-      label: "Interest is",
-      input: "select",
-      options: [
-        { value: "yearly", label: "Paid out yearly" },
-        { value: "half-yearly", label: "Paid out half yearly" },
-        { value: "quarterly", label: "Paid out quarterly" },
-        { value: "cumulative", label: "Kept in the bond (cumulative)" },
-      ],
-    },
-    { key: "startDate", label: "Bought on", input: "date" },
-    { key: "maturityDate", label: "Matures on", input: "date" },
-  ],
+  bond: [],
   "govt-scheme": [
     {
       key: "contributionType",
@@ -162,6 +136,11 @@ export function defaultDebtValues(kind: DebtKind): DebtValues {
     }
   }
   if (kind === "fd" || kind === "rd") values.compounding = "quarterly";
+  if (kind === "bond") {
+    values.interestType = "fixed";
+    values.payout = "yearly";
+    values.faceValue = "1000";
+  }
   return values;
 }
 
@@ -219,17 +198,32 @@ export function buildDebtDetails(
         startDate: values.startDate ?? "",
         ...tenure(values),
       };
-    case "bond":
+    case "bond": {
+      const buyPrice = num(values, "buyPrice");
+      const invested = num(values, "investedAmount");
+      const quantity =
+        num(values, "quantity") > 0
+          ? num(values, "quantity")
+          : buyPrice > 0 && invested > 0
+            ? invested / buyPrice
+            : 0;
       return {
         kind,
+        isin: values.isin ?? "",
+        instrumentName: values.instrumentName ?? "",
         faceValue: num(values, "faceValue"),
-        quantity: num(values, "quantity"),
-        buyPrice: num(values, "buyPrice"),
+        quantity,
+        buyPrice,
+        investedAmount: invested,
         couponRate: num(values, "couponRate"),
+        interestType: (values.interestType || "fixed") as BondInterestType,
         payout: (values.payout ?? "yearly") as BondPayout,
         startDate: values.startDate ?? "",
         maturityDate: values.maturityDate ?? "",
+        currentPrice: num(values, "currentPrice"),
+        priceUpdatedAt: values.priceUpdatedAt ?? "",
       };
+    }
     case "govt-scheme":
       return {
         kind,
@@ -320,6 +314,10 @@ export function DebtFields({
   values: DebtValues;
   onChange: (key: string, value: string) => void;
 }) {
+  if (kind === "bond") {
+    return <BondFields values={values} onChange={onChange} />;
+  }
+
   const details = buildDebtDetails(kind, values);
   const valuation = valueDebtAsset(details);
   const profit = valuation.currentValue - valuation.invested;

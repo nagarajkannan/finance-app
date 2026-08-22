@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { searchBonds } from "@/lib/market/bonds";
 import { searchFunds } from "@/lib/market/funds";
 import { searchStocks } from "@/lib/market/stocks";
 import type { InstrumentKind } from "@/lib/market/types";
@@ -6,9 +7,9 @@ import { authErrorResponse, requireUnlockedUser } from "@/lib/server/session";
 
 export const dynamic = "force-dynamic";
 
-const KINDS: InstrumentKind[] = ["mutual-fund", "stock", "etf"];
+const KINDS: InstrumentKind[] = ["mutual-fund", "stock", "etf", "bond"];
 
-/** Fund and share lookup for the equity form; kept on the server so the keys and CORS stay here. */
+/** Fund, share and bond lookup for the asset forms; kept on the server so CORS stays here. */
 export async function GET(request: Request) {
   try {
     await requireUnlockedUser();
@@ -19,7 +20,7 @@ export async function GET(request: Request) {
 
     if (!kind || !KINDS.includes(kind)) {
       return NextResponse.json(
-        { error: "Ask for kind=mutual-fund, kind=stock or kind=etf." },
+        { error: "Ask for kind=mutual-fund, kind=stock, kind=etf or kind=bond." },
         { status: 400 },
       );
     }
@@ -27,7 +28,9 @@ export async function GET(request: Request) {
     const results =
       kind === "mutual-fund"
         ? await searchFunds(query)
-        : await searchStocks(query, kind);
+        : kind === "bond"
+          ? await searchBonds(query)
+          : await searchStocks(query, kind);
 
     return NextResponse.json({ results });
   } catch (error) {

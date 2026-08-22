@@ -31,7 +31,31 @@ export const TENURE_UNIT_OPTIONS: { value: TenureUnit; label: string }[] = [
   { value: "years", label: "Years" },
 ];
 
-export type BondPayout = "quarterly" | "half-yearly" | "yearly" | "cumulative";
+export type BondPayout =
+  | "monthly"
+  | "quarterly"
+  | "half-yearly"
+  | "yearly"
+  | "cumulative";
+
+export type BondInterestType = "fixed" | "floating" | "zero";
+
+export const BOND_PAYOUT_OPTIONS: { value: BondPayout; label: string }[] = [
+  { value: "monthly", label: "Monthly" },
+  { value: "quarterly", label: "Quarterly" },
+  { value: "half-yearly", label: "Half yearly" },
+  { value: "yearly", label: "Yearly" },
+  { value: "cumulative", label: "Kept in the bond (cumulative)" },
+];
+
+export const BOND_INTEREST_TYPE_OPTIONS: {
+  value: BondInterestType;
+  label: string;
+}[] = [
+  { value: "fixed", label: "Fixed" },
+  { value: "floating", label: "Floating" },
+  { value: "zero", label: "Zero coupon" },
+];
 
 /** Tenure entered in days, months or years. */
 export interface Tenure {
@@ -59,13 +83,20 @@ export type DebtDetails =
     } & Tenure)
   | {
       kind: "bond";
+      isin?: string;
+      instrumentName?: string;
       faceValue: number;
       quantity: number;
       buyPrice: number;
+      /** Principal put in. Used when quantity is derived from amount ÷ purchase price. */
+      investedAmount?: number;
       couponRate: number;
+      interestType?: BondInterestType;
       payout: BondPayout;
       startDate: string;
       maturityDate: string;
+      currentPrice?: number;
+      priceUpdatedAt?: string;
     }
   | ({
       kind: "govt-scheme";
@@ -154,6 +185,10 @@ function yearsBetween(from: string, to: Date): number {
   return Math.max((to.getTime() - start.getTime()) / MS_PER_DAY / DAYS_PER_YEAR, 0);
 }
 
+function round(value: number): number {
+  return Number.isFinite(value) ? Math.round(value * 100) / 100 : 0;
+}
+
 function compoundedValue(
   principal: number,
   annualRate: number,
@@ -183,11 +218,120 @@ export interface DebtValuation {
   invested: number;
   /** Value as of today, derived from the instrument's own rules. */
   currentValue: number;
+  /** Coupons earned (or accretion) since purchase. */
+  interestEarned?: number;
+  /** (Current value − invested) ÷ invested. */
+  totalReturnPercent?: number;
   /** Value at the end of the tenure, when the instrument has one. */
   maturityValue?: number;
   maturityDate?: string;
   /** Human readable notes shown next to the calculated value. */
   explanation: string[];
+}
+
+function bondQuantity(details: Extract<DebtDetails, { kind: "bond" }>): number {
+  if (details.quantity > 0) return details.quantity;
+  const unit = details.buyPrice > 0 ? details.buyPrice : details.faceValue;
+  const invested = details.investedAmount ?? 0;
+  if (invested > 0 && unit > 0) return invested / unit;
+  return 0;
+}
+
+function valueBond(
+  details: Extract<DebtDetails, { kind: "bond" }>,
+  asOf: Date,
+): DebtValuation {
+  const quantity = bondQuantity(details);
+  const unitCost = details.buyPrice > 0 ? details.buyPrice : details.faceValue;
+  const invested = round(
+    details.investedAmount && details.investedAmount > 0
+      ? details.investedAmount
+      : unitCost * quantity,
+  );
+  const faceTotal = round(details.faceValue * quantity);
+  const maturity = details.maturityDate ? new Date(details.maturityDate) : null;
+  const end =
+    maturity && !Number.isNaN(maturity.getTime()) && maturity < asOf
+      ? maturity
+      : asOf;
+  const elapsed = yearsBetween(details.startDate, end);
+  const totalYears = details.maturityDate
+    ? Math.max(
+        (new Date(details.maturityDate).getTime() -
+          new Date(details.startDate || details.maturityDate).getTime()) /
+          MS_PER_DAY /
+          DAYS_PER_YEAR,
+        0,
+      )
+    : 0;
+  const interestType =
+    details.interestType ??
+    (details.payout === "cumulative" || !(details.couponRate > 0)
+      ? "zero"
+      : "fixed");
+  const unitPrice =
+    details.currentPrice && details.currentPrice > 0
+      ? details.currentPrice
+      : unitCost;
+  const marketValue = round(quantity * unitPrice);
+  const compounding =
+    details.payout === "cumulative" || interestType === "zero";
+
+  let interestEarned = 0;
+  let currentValue = marketValue;
+  let maturityValue = faceTotal;
+
+  if (compounding) {
+    if (details.couponRate > 0 && details.payout === "cumulative") {
+      currentValue = round(
+        compoundedValue(invested, details.couponRate, "yearly", elapsed),
+      );
+      maturityValue = round(
+        compoundedValue(invested, details.couponRate, "yearly", totalYears),
+      );
+      if (details.currentPrice && details.currentPrice > 0) {
+        currentValue = marketValue;
+      }
+    } else if (totalYears > 0) {
+      const progress = Math.min(elapsed / totalYears, 1);
+      currentValue = round(invested + (faceTotal - invested) * progress);
+      if (details.currentPrice && details.currentPrice > 0) {
+        currentValue = marketValue;
+      }
+    }
+    interestEarned = round(currentValue - invested);
+  } else {
+    interestEarned = round(faceTotal * (details.couponRate / 100) * elapsed);
+    currentValue = round(marketValue + interestEarned);
+    maturityValue = faceTotal;
+  }
+
+  const totalReturnPercent =
+    invested > 0 ? ((currentValue - invested) / invested) * 100 : 0;
+  const payoutLabel =
+    details.payout === "cumulative" ? "kept in the bond" : `paid ${details.payout}`;
+
+  return {
+    invested,
+    currentValue,
+    interestEarned,
+    totalReturnPercent,
+    maturityValue,
+    maturityDate: details.maturityDate,
+    explanation: compounding
+      ? [
+          `Zero / cumulative: value moves from what you paid towards face value (or compounds at ${details.couponRate}% if a coupon is set).`,
+          details.currentPrice && details.currentPrice > 0
+            ? `Today's market price of ₹${details.currentPrice} per bond is used when Bond Central / BSE has a quote.`
+            : "No live market price yet, so the value is worked out from the coupon and dates.",
+        ]
+      : [
+          `Interest earned = face value × ${details.couponRate}% × years held, ${payoutLabel}.`,
+          details.currentPrice && details.currentPrice > 0
+            ? `Current value = ${quantity} × ₹${details.currentPrice} (market) + interest earned.`
+            : `Current value = amount invested + interest earned so far.`,
+        ],
+  };
 }
 
 export function valueDebtAsset(
@@ -256,68 +400,8 @@ export function valueDebtAsset(
         ],
       };
     }
-    case "bond": {
-      const invested = details.buyPrice * details.quantity;
-      const faceTotal = details.faceValue * details.quantity;
-      const annualCoupon = (faceTotal * details.couponRate) / 100;
-      const totalYears = details.maturityDate
-        ? Math.max(
-            (new Date(details.maturityDate).getTime() -
-              new Date(details.startDate || details.maturityDate).getTime()) /
-              MS_PER_DAY /
-              DAYS_PER_YEAR,
-            0,
-          )
-        : 0;
-      const elapsed = details.maturityDate
-        ? Math.min(yearsBetween(details.startDate, asOf), totalYears)
-        : yearsBetween(details.startDate, asOf);
-
-      if (details.payout === "cumulative") {
-        const currentValue = compoundedValue(
-          invested,
-          details.couponRate,
-          "yearly",
-          elapsed,
-        );
-        return {
-          invested,
-          currentValue,
-          maturityValue: compoundedValue(
-            invested,
-            details.couponRate,
-            "yearly",
-            totalYears,
-          ),
-          maturityDate: details.maturityDate,
-          explanation: [
-            `Interest is kept in the bond and compounds at ${details.couponRate}% a year.`,
-            `${(elapsed * DAYS_PER_YEAR).toFixed(0)} of ${(totalYears * DAYS_PER_YEAR).toFixed(0)} days completed.`,
-          ],
-        };
-      }
-
-      const periods = PERIODS_PER_YEAR[
-        details.payout === "yearly"
-          ? "yearly"
-          : details.payout === "half-yearly"
-            ? "half-yearly"
-            : "quarterly"
-      ];
-      const periodYears = 1 / periods;
-      const accruedYears = elapsed % periodYears;
-      const accruedInterest = annualCoupon * accruedYears;
-      return {
-        invested,
-        currentValue: faceTotal + accruedInterest,
-        maturityValue: faceTotal,
-        maturityDate: details.maturityDate,
-        explanation: [
-          `Interest of ${annualCoupon.toFixed(0)} a year is paid out ${details.payout}, so it is not added to the value.`,
-          `Value = face value plus interest accrued in the last ${(accruedYears * DAYS_PER_YEAR).toFixed(0)} days.`,
-        ],
-      };
-    }
+    case "bond":
+      return valueBond(details, asOf);
     case "govt-scheme": {
       const totalYears = tenureYears(details);
       const elapsed = Math.min(yearsBetween(details.startDate, asOf), totalYears);
@@ -475,15 +559,14 @@ export const DEBT_FORMULAS: Record<DebtKind, DebtFormula> = {
   bond: {
     title: "Bond",
     lines: [
-      "Interest paid out → Value today = F × Q + C × d/365.25",
-      "Cumulative → Value today = (B × Q) × (1 + c)^t",
-      "Maturity value = F × Q (or the compounded amount if cumulative)",
+      "Interest earned = F × Q × c × t",
+      "Current value = Q × P + interest earned (coupons paid out)",
+      "Zero / cumulative → value accretes or compounds; live price used when listed",
     ],
     where: [
-      "F = face value per bond, Q = number of bonds, B = price you paid",
-      "c = coupon rate a year, C = F × Q × c (interest a year)",
-      "d = days since the last interest payout",
-      "t = years since you bought it",
+      "F = face value, Q = number of bonds (amount invested ÷ purchase price)",
+      "c = coupon rate a year, t = years from purchase to today (capped at maturity)",
+      "P = today's market price from BSE via Bond Central, or the price you paid",
     ],
   },
   "govt-scheme": {
@@ -535,10 +618,6 @@ export const DEBT_FORMULAS: Record<DebtKind, DebtFormula> = {
     ],
   },
 };
-
-function round(value: number): number {
-  return Number.isFinite(value) ? Math.round(value * 100) / 100 : 0;
-}
 
 /** Recomputes invested and current value for assets whose value is calculated. */
 export function deriveAsset(asset: Asset, asOf: Date = new Date()): Asset {

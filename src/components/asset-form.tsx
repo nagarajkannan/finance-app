@@ -65,18 +65,21 @@ function institutionLabel(categoryId: string, type: string): {
   placeholder: string;
 } {
   const equityKind = equityKindForType(categoryId, type);
-  if (equityKind === "mutual-fund") {
-    return {
-      label: "Where is it kept?",
-      hint: "Platform or AMC",
-      placeholder: "Example: Groww, Zerodha Coin",
-    };
-  }
   if (equityKind) {
     return {
-      label: "Demat / broker",
+      label: equityKind === "mutual-fund" ? "Where is it kept?" : "Demat / broker",
+      hint: equityKind === "mutual-fund" ? "Platform or AMC" : "Optional",
+      placeholder:
+        equityKind === "mutual-fund"
+          ? "Example: Groww, Zerodha Coin"
+          : "Example: Zerodha, Groww",
+    };
+  }
+  if (categoryId === "debt" && type === "Bonds") {
+    return {
+      label: "Broker / platform",
       hint: "Optional",
-      placeholder: "Example: Zerodha, Groww",
+      placeholder: "Example: GoldenPi, IndiaBonds, Zerodha",
     };
   }
   return {
@@ -169,15 +172,37 @@ export function AssetForm({
     const equityDetails = equityKind
       ? buildEquityDetails(equityKind, equityValues)
       : undefined;
-    const name = values.name.trim() || equityDetails?.instrumentName.trim() || "";
+    const debtDetails = debtKind
+      ? buildDebtDetails(debtKind, debtValues)
+      : undefined;
+    const name =
+      values.name.trim() ||
+      equityDetails?.instrumentName.trim() ||
+      (debtDetails?.kind === "bond" ? debtDetails.instrumentName?.trim() : "") ||
+      "";
 
     if (!name) {
       setError(
         equityKind
           ? "Please pick the fund or share this holding is in."
-          : "Please give this asset a name.",
+          : debtKind === "bond"
+            ? "Please pick the bond this holding is in."
+            : "Please give this asset a name.",
       );
       return;
+    }
+    if (debtKind === "bond" && debtDetails?.kind === "bond") {
+      if (
+        !(debtDetails.investedAmount && debtDetails.investedAmount > 0) &&
+        !(debtDetails.quantity > 0 && debtDetails.buyPrice > 0)
+      ) {
+        setError("Please enter the amount you invested.");
+        return;
+      }
+      if (!debtDetails.startDate) {
+        setError("Please enter the purchase date.");
+        return;
+      }
     }
     if (equityDetails && !(equityDetails.units > 0)) {
       setError(
@@ -199,9 +224,6 @@ export function AssetForm({
       return;
     }
 
-    const debtDetails = debtKind
-      ? buildDebtDetails(debtKind, debtValues)
-      : undefined;
     const valuation = debtDetails
       ? valueDebtAsset(debtDetails)
       : equityDetails
@@ -246,7 +268,7 @@ export function AssetForm({
   return (
     <Card>
       <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
-        {equityKind ? null : (
+        {equityKind || debtKind === "bond" ? null : (
           <Field label="Asset name" hint="Example: HDFC Flexi Cap Fund">
             <TextInput
               value={values.name}

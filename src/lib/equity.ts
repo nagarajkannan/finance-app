@@ -2,7 +2,7 @@ import type { InstrumentKind } from "./market/types";
 import type { Asset } from "./types";
 
 /** Equity holdings that are priced from a live NAV or market price. */
-export type EquityKind = InstrumentKind;
+export type EquityKind = Exclude<InstrumentKind, "bond">;
 
 export type InvestmentMode = "sip" | "lumpsum";
 

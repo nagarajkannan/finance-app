@@ -1,5 +1,5 @@
 /** Instruments the market lookup can search for. */
-export type InstrumentKind = "mutual-fund" | "stock" | "etf";
+export type InstrumentKind = "mutual-fund" | "stock" | "etf" | "bond";
 
 /** One row in the fund / stock dropdown. */
 export interface InstrumentOption {
@@ -7,7 +7,7 @@ export interface InstrumentOption {
   /** Scheme code for funds, exchange symbol (RELIANCE.NS) for stocks and ETFs. */
   id: string;
   name: string;
-  /** Fund house, or the exchange a stock trades on. */
+  /** Fund house, the exchange a stock trades on, or bond coupon / maturity. */
   detail: string;
 }
 

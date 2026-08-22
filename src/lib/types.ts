@@ -26,14 +26,7 @@ export const ASSET_CATEGORIES: AssetCategory[] = [
     name: "Equity",
     description: "Shares and funds that invest in companies",
     icon: "📈",
-    types: [
-      "Equity Mutual Fund",
-      "Direct Stock",
-      "ETF Fund",
-      "NPS",
-      "Hybrid Mutual Fund",
-      "Other Equity",
-    ],
+    types: ["Equity Mutual Fund", "Direct Stock", "ETF Fund"],
   },
   {
     id: "debt",
