@@ -29,6 +29,7 @@ import { fetchGoldQuote } from "@/lib/market/client";
 import type { Asset, Goal, Liability } from "@/lib/types";
 import { Card, EmptyState, LinkButton, PageHeader, ProgressBar } from "@/components/ui";
 import { DonutChart } from "./donut";
+import { WealthTrend } from "./wealth-trend";
 
 const UPCOMING_WINDOWS = [
   { days: 30, label: "Next 30 days" },
@@ -291,6 +292,19 @@ export function DashboardView({
             }
           />
         </div>
+      </section>
+
+      <section>
+        <SectionTitle
+          icon="📅"
+          title="Wealth trend"
+          action={
+            <Link href="/snapshots" className="text-sm font-medium text-slate-600 hover:text-slate-900">
+              Snapshots →
+            </Link>
+          }
+        />
+        <WealthTrend netWorth={netWorth} />
       </section>
 
       <section>
