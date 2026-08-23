@@ -87,3 +87,50 @@ model Goal {
   @@index([userId])
   @@map("goals")
 }
+
+/// A frozen copy of the totals derived from assets, liabilities and goals at one moment.
+model Snapshot {
+  id                  String   @id @default(cuid())
+  userId              String
+  capturedAt          DateTime
+  name                String   @default("")
+  totalAssets         Float
+  totalLiabilities    Float
+  netWorth            Float
+  totalInvested       Float
+  assetCategories     Json
+  liabilityCategories Json
+  goals               Json
+  /// "manual" or "scheduled".
+  source              String   @default("manual")
+  scheduleId          String?
+  /// Identifies the scheduled slot this snapshot filled, so a slot is only ever taken once.
+  periodKey           String?
+  createdAt           DateTime @default(now())
+
+  @@unique([userId, scheduleId, periodKey])
+  @@index([userId, capturedAt])
+  @@map("snapshots")
+}
+
+/// One automatic snapshot rule per account.
+model SnapshotSchedule {
+  id           String    @id @default(cuid())
+  userId       String    @unique
+  enabled      Boolean   @default(false)
+  /// daily | weekly | monthly | quarterly | yearly | custom
+  frequency    String    @default("monthly")
+  /// Local time of day the snapshot should be taken, as "HH:MM".
+  timeOfDay    String    @default("20:00")
+  /// Only used by the custom frequency: how many days between snapshots.
+  intervalDays Int       @default(14)
+  /// "YYYY-MM-DD"; empty means "from today".
+  startDate    String    @default("")
+  /// "YYYY-MM-DD"; empty means "no end".
+  endDate      String    @default("")
+  lastRunAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("snapshot_schedules")
+}
