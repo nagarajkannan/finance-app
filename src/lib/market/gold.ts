@@ -50,7 +50,7 @@ function rupees(value: string): number {
  */
 function parseBoardRates(html: string, market: string): IndiaGoldRates | null {
   const match = html.match(
-    /Today's gold price in (?:Chennai|India) stands at <strong>(?:&#x20b9;|&#8377;|₹)([0-9,]+)<\/strong> per gram for 24 karat gold.*? <strong>(?:&#x20b9;|&#8377;|₹)([0-9,]+)<\/strong> per gram for 22 karat gold.*? <strong>(?:&#x20b9;|&#8377;|₹)([0-9,]+)<\/strong> per gram for 18 karat gold/is,
+    /Today's gold price in (?:Chennai|India) stands at <strong>(?:&#x20b9;|&#8377;|₹)([0-9,]+)<\/strong> per gram for 24 karat gold[\s\S]*? <strong>(?:&#x20b9;|&#8377;|₹)([0-9,]+)<\/strong> per gram for 22 karat gold[\s\S]*? <strong>(?:&#x20b9;|&#8377;|₹)([0-9,]+)<\/strong> per gram for 18 karat gold/i,
   );
   if (!match) return null;
   const price24 = rupees(match[1]);
