@@ -453,32 +453,45 @@ export function portfolioRisk(assets: Asset[]): RiskSlice[] {
     .filter((slice) => slice.current > 0 || slice.id !== "other");
 }
 
-const SNAP_KEY = "mm_networth_month";
+const LEGACY_SNAP_KEY = "mm_networth_month";
 
-export function monthNetWorthChange(netWorth: number): {
-  change: number;
-  hasBaseline: boolean;
-} {
-  if (typeof window === "undefined") {
-    return { change: 0, hasBaseline: false };
-  }
-  const month = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
-  try {
-    const raw = window.localStorage.getItem(SNAP_KEY);
-    const parsed = raw
-      ? (JSON.parse(raw) as { month?: string; start?: number })
-      : {};
-    if (parsed.month === month && Number.isFinite(parsed.start)) {
-      return { change: netWorth - Number(parsed.start), hasBaseline: true };
+function startOfLocalMonth(asOf: Date): Date {
+  return new Date(asOf.getFullYear(), asOf.getMonth(), 1);
+}
+
+/** This month's change vs a real snapshot — never vs a leftover browser cache. */
+export function monthNetWorthChange(
+  netWorth: number,
+  snapshots: { capturedAt: string; netWorth: number }[],
+  asOf: Date = new Date(),
+): { change: number; hasBaseline: boolean } {
+  if (typeof window !== "undefined") {
+    try {
+      window.localStorage.removeItem(LEGACY_SNAP_KEY);
+    } catch {
+      /* ignore */
     }
-    window.localStorage.setItem(
-      SNAP_KEY,
-      JSON.stringify({ month, start: netWorth }),
-    );
-    return { change: 0, hasBaseline: false };
-  } catch {
+  }
+
+  const monthStart = startOfLocalMonth(asOf).getTime();
+  const dated = snapshots
+    .map((snapshot) => ({
+      netWorth: snapshot.netWorth,
+      at: new Date(snapshot.capturedAt).getTime(),
+    }))
+    .filter(
+      (snapshot) =>
+        Number.isFinite(snapshot.at) && Number.isFinite(snapshot.netWorth),
+    )
+    .sort((a, b) => a.at - b.at);
+
+  const beforeMonth = [...dated].reverse().find((snapshot) => snapshot.at < monthStart);
+  const firstThisMonth = dated.find((snapshot) => snapshot.at >= monthStart);
+  const baseline = beforeMonth ?? firstThisMonth;
+  if (!baseline) {
     return { change: 0, hasBaseline: false };
   }
+  return { change: netWorth - baseline.netWorth, hasBaseline: true };
 }
 
 const GOLD_RATE_KEY = "mm_gold_rate_22k";

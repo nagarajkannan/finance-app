@@ -26,6 +26,7 @@ import {
   formatSignedPercent,
 } from "@/lib/format";
 import { fetchGoldQuote } from "@/lib/market/client";
+import { useSnapshots } from "@/lib/snapshot-client";
 import type { Asset, Goal, Liability } from "@/lib/types";
 import { Card, EmptyState, LinkButton, PageHeader, ProgressBar } from "@/components/ui";
 import { DonutChart } from "./donut";
@@ -183,6 +184,11 @@ export function DashboardView({
   const risk = useMemo(() => portfolioRisk(assets), [assets]);
   const insights = useMemo(() => goalInsights(goals, assets), [goals, assets]);
   const monthlyEmi = totalMonthlyEmi(liabilities);
+  const { snapshots } = useSnapshots();
+  const monthChange = useMemo(
+    () => monthNetWorthChange(netWorth, snapshots),
+    [netWorth, snapshots],
+  );
 
   const [windowDays, setWindowDays] = useState<(typeof UPCOMING_WINDOWS)[number]["days"]>(
     30,
@@ -191,7 +197,6 @@ export function DashboardView({
     () => upcomingEvents(assets, windowDays),
     [assets, windowDays],
   );
-  const [monthChange, setMonthChange] = useState({ change: 0, hasBaseline: false });
   const [goldQuote, setGoldQuote] = useState<{
     pricePerGram: number;
     asOf: string;
@@ -201,10 +206,6 @@ export function DashboardView({
     change: number;
     percent: number;
   } | null>(null);
-
-  useEffect(() => {
-    setMonthChange(monthNetWorthChange(netWorth));
-  }, [netWorth]);
 
   useEffect(() => {
     let cancelled = false;
@@ -259,10 +260,14 @@ export function DashboardView({
               </span>
               Net worth change
             </p>
-            <p className={`mt-1 text-lg font-semibold ${toneClass(monthChange.change)}`}>
+            <p
+              className={`mt-1 text-lg font-semibold ${
+                monthChange.hasBaseline ? toneClass(monthChange.change) : "text-slate-600"
+              }`}
+            >
               {monthChange.hasBaseline
                 ? `${formatSignedCurrency(monthChange.change)} this month ${monthChange.change >= 0 ? "↑" : "↓"}`
-                : "Snapshot started this month — change will show on your next visits"}
+                : "No month-start snapshot yet — take one under Snapshots to track change"}
             </p>
           </div>
         </Card>
