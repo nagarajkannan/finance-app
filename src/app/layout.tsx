@@ -20,7 +20,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <AuthGate>
           <Nav />
           <DataError />
-          <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
+          <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
             {children}
           </main>
         </AuthGate>
