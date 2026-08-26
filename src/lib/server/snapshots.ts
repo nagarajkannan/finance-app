@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { deriveAsset } from "@/lib/derive";
+import { DriveNotConnectedError, uploadExportToDrive } from "@/lib/server/exports";
 import { normalizeAsset, normalizeGoal, normalizeLiability } from "@/lib/server/records";
 import {
   buildSnapshotValues,
@@ -39,6 +40,7 @@ export function normalizeSnapshot(record: SnapshotRecord): Snapshot {
     assetCategories: asCategories(record.assetCategories),
     liabilityCategories: asCategories(record.liabilityCategories),
     goals: Array.isArray(record.goals) ? (record.goals as unknown as SnapshotGoal[]) : [],
+    driveFileUrl: record.driveFileUrl ?? undefined,
     createdAt: record.createdAt.toISOString(),
   };
 }
@@ -64,6 +66,33 @@ export interface CaptureOptions {
   capturedAt?: Date;
   scheduleId?: string;
   periodKey?: string;
+  /** Also save the Excel export in the account's Google Drive. */
+  uploadToDrive?: boolean;
+}
+
+/**
+ * Saves the Excel export alongside the snapshot. A Drive problem must never
+ * lose the snapshot itself, so it is logged and the snapshot is returned as it
+ * is — the account can upload it again from the Snapshots page.
+ */
+async function attachDriveExport(
+  snapshot: Snapshot,
+  userId: string,
+  capturedAt: Date,
+): Promise<Snapshot> {
+  try {
+    const file = await uploadExportToDrive(userId, capturedAt);
+    await db.snapshot.update({
+      where: { id: snapshot.id },
+      data: { driveFileId: file.id, driveFileUrl: file.webViewLink },
+    });
+    return { ...snapshot, driveFileUrl: file.webViewLink };
+  } catch (error) {
+    if (!(error instanceof DriveNotConnectedError)) {
+      console.error("Uploading the export to Google Drive failed", error);
+    }
+    return snapshot;
+  }
 }
 
 export async function captureSnapshot(
@@ -71,11 +100,12 @@ export async function captureSnapshot(
   options: CaptureOptions = {},
 ): Promise<Snapshot> {
   const values = await currentValues(userId);
+  const capturedAt = options.capturedAt ?? new Date();
 
   const record = await db.snapshot.create({
     data: {
       userId,
-      capturedAt: options.capturedAt ?? new Date(),
+      capturedAt,
       name: options.name?.trim() ?? "",
       source: options.source ?? "manual",
       scheduleId: options.scheduleId ?? null,
@@ -91,7 +121,9 @@ export async function captureSnapshot(
     },
   });
 
-  return normalizeSnapshot(record);
+  const snapshot = normalizeSnapshot(record);
+  if (!options.uploadToDrive) return snapshot;
+  return attachDriveExport(snapshot, userId, capturedAt);
 }
 
 export async function listSnapshots(userId: string): Promise<Snapshot[]> {
@@ -113,6 +145,7 @@ export function normalizeSchedule(
     intervalDays: record.intervalDays,
     startDate: record.startDate,
     endDate: record.endDate,
+    exportToDrive: record.exportToDrive,
     lastRunAt: record.lastRunAt?.toISOString(),
   };
   const next = nextSlot(timingFrom(schedule, record.createdAt), now);
@@ -130,6 +163,7 @@ export const DEFAULT_SCHEDULE: SnapshotSchedule = {
   intervalDays: 14,
   startDate: "",
   endDate: "",
+  exportToDrive: true,
 };
 
 export async function readSchedule(userId: string): Promise<SnapshotSchedule> {
@@ -148,6 +182,7 @@ export async function writeSchedule(
     intervalDays: schedule.intervalDays,
     startDate: schedule.startDate,
     endDate: schedule.endDate,
+    exportToDrive: schedule.exportToDrive,
   };
 
   const record = await db.snapshotSchedule.upsert({
@@ -208,6 +243,7 @@ export async function runDueSnapshots(
         scheduleId: record.id,
         periodKey: periodKeyFor(slot),
         name: "",
+        uploadToDrive: record.exportToDrive,
       });
       result.created += 1;
     } catch (error) {

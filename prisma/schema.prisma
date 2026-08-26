@@ -18,6 +18,13 @@ model User {
   pinUpdatedAt   DateTime?
   pinFailedCount Int       @default(0)
   pinLockedUntil DateTime?
+  /// Encrypted Google refresh token, kept so exports can be uploaded to Drive without a browser.
+  driveRefreshToken String?
+  driveConnectedAt  DateTime?
+  /// The "My Money exports" folder created in this account's Drive.
+  driveFolderId     String?
+  driveLastExportAt DateTime?
+  driveLastFileUrl  String?
   createdAt      DateTime  @default(now())
   lastLoginAt    DateTime  @default(now())
 
@@ -103,6 +110,9 @@ model Snapshot {
   goals               Json
   /// "manual" or "scheduled".
   source              String   @default("manual")
+  /// The Excel export uploaded to Drive for this snapshot, when there is one.
+  driveFileId         String?
+  driveFileUrl        String?
   scheduleId          String?
   /// Identifies the scheduled slot this snapshot filled, so a slot is only ever taken once.
   periodKey           String?
@@ -128,6 +138,8 @@ model SnapshotSchedule {
   startDate    String    @default("")
   /// "YYYY-MM-DD"; empty means "no end".
   endDate      String    @default("")
+  /// Upload an Excel export to Google Drive with every snapshot.
+  exportToDrive Boolean  @default(true)
   lastRunAt    DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt

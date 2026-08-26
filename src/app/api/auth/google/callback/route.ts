@@ -3,10 +3,12 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import {
   appBaseUrl,
+  DRIVE_SCOPE,
   exchangeCode,
   fetchProfile,
   isAllowedEmail,
 } from "@/lib/server/google";
+import { encryptSecret } from "@/lib/server/secrets";
 import { startSession } from "@/lib/server/session";
 
 export const dynamic = "force-dynamic";
@@ -37,13 +39,22 @@ export async function GET(request: Request) {
   }
 
   try {
-    const profile = await fetchProfile(
-      await exchangeCode({ request, code, codeVerifier }),
-    );
+    const tokens = await exchangeCode({ request, code, codeVerifier });
+    const profile = await fetchProfile(tokens.accessToken);
 
     if (!isAllowedEmail(profile.email)) {
       return loginError(request, "This app is not shared with that account.");
     }
+
+    /* Google only sends a refresh token when Drive access is granted offline;
+       without one the exports can only be downloaded, never uploaded. */
+    const drive =
+      tokens.refreshToken && tokens.scopes.includes(DRIVE_SCOPE)
+        ? {
+            driveRefreshToken: encryptSecret(tokens.refreshToken),
+            driveConnectedAt: new Date(),
+          }
+        : {};
 
     const user = await db.user.upsert({
       where: { googleId: profile.sub },
@@ -52,12 +63,14 @@ export async function GET(request: Request) {
         email: profile.email,
         name: profile.name,
         image: profile.picture,
+        ...drive,
       },
       update: {
         email: profile.email,
         name: profile.name,
         image: profile.picture,
         lastLoginAt: new Date(),
+        ...drive,
       },
     });
 

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { ExportCard } from "@/components/snapshots/export-card";
 import { ScheduleCard } from "@/components/snapshots/schedule-card";
 import { Button, Card, EmptyState, LinkButton, PageHeader } from "@/components/ui";
 import { sortByDate } from "@/lib/analytics";
@@ -133,6 +134,8 @@ export default function SnapshotsPage() {
 
       {schedule ? <ScheduleCard schedule={schedule} onSave={saveSchedule} /> : null}
 
+      <ExportCard />
+
       <Card>
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="flex flex-wrap items-end gap-3">
@@ -251,6 +254,16 @@ export default function SnapshotsPage() {
                       >
                         View
                       </Link>
+                      {snapshot.driveFileUrl ? (
+                        <a
+                          href={snapshot.driveFileUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-sm font-medium text-slate-600 hover:text-slate-900"
+                        >
+                          Excel
+                        </a>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => void remove(snapshot.id)}

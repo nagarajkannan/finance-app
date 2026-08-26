@@ -43,6 +43,7 @@ function sanitizeSchedule(payload: unknown): SnapshotSchedule {
     ),
     startDate,
     endDate,
+    exportToDrive: value.exportToDrive !== false,
   };
 }
 

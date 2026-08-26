@@ -2,6 +2,14 @@ const AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const USERINFO_ENDPOINT = "https://openidconnect.googleapis.com/v1/userinfo";
 
+/**
+ * `drive.file` only ever sees the files this app creates, so the exports land
+ * in the signed-in account's Drive without the app being able to read anything
+ * else in it.
+ */
+export const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
+const SCOPES = ["openid", "email", "profile", DRIVE_SCOPE].join(" ");
+
 export interface GoogleProfile {
   sub: string;
   email: string;
@@ -67,20 +75,31 @@ export function authorizeUrl(options: {
   url.searchParams.set("client_id", clientId);
   url.searchParams.set("redirect_uri", redirectUri(options.request));
   url.searchParams.set("response_type", "code");
-  url.searchParams.set("scope", "openid email profile");
+  url.searchParams.set("scope", SCOPES);
   url.searchParams.set("state", options.state);
   url.searchParams.set("code_challenge", options.codeChallenge);
   url.searchParams.set("code_challenge_method", "S256");
-  url.searchParams.set("prompt", "select_account");
+  /* Offline access + consent is what makes Google hand back a refresh token,
+     which the scheduled export needs long after the browser has gone. */
+  url.searchParams.set("access_type", "offline");
+  url.searchParams.set("include_granted_scopes", "true");
+  url.searchParams.set("prompt", "select_account consent");
 
   return url.toString();
+}
+
+export interface GoogleTokens {
+  accessToken: string;
+  /** Only sent when the account grants offline access. */
+  refreshToken?: string;
+  scopes: string[];
 }
 
 export async function exchangeCode(options: {
   request: Request;
   code: string;
   codeVerifier: string;
-}): Promise<string> {
+}): Promise<GoogleTokens> {
   const { clientId, clientSecret } = googleConfig();
 
   const response = await fetch(TOKEN_ENDPOINT, {
@@ -98,6 +117,8 @@ export async function exchangeCode(options: {
 
   const body = (await response.json().catch(() => null)) as {
     access_token?: string;
+    refresh_token?: string;
+    scope?: string;
     error_description?: string;
     error?: string;
   } | null;
@@ -105,6 +126,42 @@ export async function exchangeCode(options: {
   if (!response.ok || !body?.access_token) {
     throw new Error(
       body?.error_description ?? body?.error ?? "Google rejected the sign-in.",
+    );
+  }
+
+  return {
+    accessToken: body.access_token,
+    refreshToken: body.refresh_token,
+    scopes: (body.scope ?? "").split(" ").filter(Boolean),
+  };
+}
+
+/** Trades the stored refresh token for a short lived access token. */
+export async function refreshAccessToken(refreshToken: string): Promise<string> {
+  const { clientId, clientSecret } = googleConfig();
+
+  const response = await fetch(TOKEN_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: "refresh_token",
+    }),
+  });
+
+  const body = (await response.json().catch(() => null)) as {
+    access_token?: string;
+    error_description?: string;
+    error?: string;
+  } | null;
+
+  if (!response.ok || !body?.access_token) {
+    throw new Error(
+      body?.error_description ??
+        body?.error ??
+        "Google would not renew the Drive access. Sign in again to reconnect it.",
     );
   }
   return body.access_token;

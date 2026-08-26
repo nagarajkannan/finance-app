@@ -150,6 +150,22 @@ export function ScheduleCard({
         </div>
       </div>
 
+      <label className="mt-4 flex items-start gap-2 text-sm text-slate-700">
+        <input
+          type="checkbox"
+          checked={draft.exportToDrive}
+          onChange={(event) => update({ exportToDrive: event.target.checked })}
+          className="mt-0.5 size-4 rounded border-slate-300"
+        />
+        <span>
+          Save an Excel export in Google Drive with every snapshot
+          <span className="block text-xs text-slate-500">
+            Assets, liabilities and goals, one sheet each, in the “My Money exports”
+            folder of the account you signed in with.
+          </span>
+        </span>
+      </label>
+
       <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
         <Button type="button" onClick={() => void save()} disabled={saving}>
           {saving ? "Saving…" : "Save schedule"}
