@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-export const LEGAL_CONTACT_EMAIL = "gnaneshoffl@gmail.com";
+export const LEGAL_CONTACT_EMAIL = "deivammuthupandi123@gmail.com";
 export const LEGAL_LAST_UPDATED = "26 August 2026";
 
 export function LegalPage({
