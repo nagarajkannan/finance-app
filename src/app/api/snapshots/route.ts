@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { authErrorResponse, requireUnlockedUser } from "@/lib/server/session";
-import { captureSnapshot, listSnapshots } from "@/lib/server/snapshots";
+import { captureSnapshot, listSnapshots, readSchedule } from "@/lib/server/snapshots";
 
 export const dynamic = "force-dynamic";
 
@@ -24,10 +24,12 @@ export async function POST(request: Request) {
       name?: unknown;
     };
     const name = typeof payload.name === "string" ? payload.name.slice(0, 120) : "";
+    const schedule = await readSchedule(user.id);
 
-    return NextResponse.json(await captureSnapshot(user.id, { name }), {
-      status: 201,
-    });
+    return NextResponse.json(
+      await captureSnapshot(user.id, { name, uploadToDrive: schedule.exportToDrive }),
+      { status: 201 },
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     return (
