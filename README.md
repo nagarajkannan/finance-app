@@ -71,6 +71,12 @@ Credentials stay in your browser; they are sent to a small server route (`/api/g
 - Link **specific individual assets** — e.g. 2 of your 3 mutual funds for a house goal and the third for a marriage goal. The picker groups assets by category and type, with "select all" per type, and warns when an asset is already used by another goal.
 - Progress is derived from the current value of the linked assets: target, current, remaining, progress %.
 
+### Excel export to Google Drive
+- **Download Excel** on the Snapshots page gives one workbook with a sheet each for Assets, Liabilities and Goals.
+- **Save to Drive now** puts the same workbook in a `My Money exports` folder inside the Google account you signed in with.
+- Snapshots — manual and scheduled — upload a workbook too while *Save an Excel export in Google Drive with every snapshot* is on in the schedule card, so the folder becomes the history. Every export is a new file; nothing is overwritten, and a failed upload never stops the snapshot from being saved.
+- Drive access is asked for at sign-in (the narrow `drive.file` scope — the app only sees files it created). Accounts that signed in before this existed have to sign in again once; the Snapshots page shows a **Connect Google Drive** button until then.
+
 ### Dashboard
 Total asset value, invested amount, profit / loss, total outstanding liabilities, goal progress, and **Net worth = assets − liabilities**.
 

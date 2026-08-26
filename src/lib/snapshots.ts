@@ -37,6 +37,8 @@ export interface Snapshot extends SnapshotValues {
   capturedAt: string;
   name: string;
   source: SnapshotSource;
+  /** Set when the Excel export for this snapshot reached Google Drive. */
+  driveFileUrl?: string;
   createdAt: string;
 }
 
@@ -126,6 +128,8 @@ export interface SnapshotSchedule {
   startDate: string;
   /** "YYYY-MM-DD", empty means "never end". */
   endDate: string;
+  /** Upload the Excel export to Google Drive with every snapshot. */
+  exportToDrive: boolean;
   lastRunAt?: string;
   /** Derived, never stored: when the next automatic snapshot is due. */
   nextRunAt?: string;
