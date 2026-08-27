@@ -124,6 +124,60 @@ export interface Liability {
   createdAt: string;
 }
 
+export type CashFlowType =
+  | "expense"
+  | "asset-investment"
+  | "liability-payment";
+
+export type AllocationMode = "amount" | "percentage";
+
+export interface SalaryAccount {
+  id: string;
+  accountName: string;
+  accountLast4: string;
+  monthlyIncome: number;
+  salaryCreditDay: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CashFlowTransaction {
+  id: string;
+  month: string;
+  date: string;
+  type: CashFlowType;
+  category: string;
+  description: string;
+  amount: number;
+  allocationMode: AllocationMode;
+  allocationValue: number;
+  targetId?: string;
+  targetName?: string;
+  quantityAdded?: number;
+  quantityUnit?: string;
+  pricePerUnit?: number;
+  assetValueBefore?: number;
+  assetValueAfter?: number;
+  liabilityOutstandingBefore?: number;
+  liabilityOutstandingAfter?: number;
+  calculation: string;
+  createdAt: string;
+}
+
+export interface CashFlowSummary {
+  account?: SalaryAccount;
+  month: string;
+  income: number;
+  allocated: number;
+  remaining: number;
+  totals: Record<CashFlowType, number>;
+  expenseCategories: Array<{
+    category: string;
+    amount: number;
+  }>;
+  transactions: CashFlowTransaction[];
+}
+
 export interface Goal {
   id: string;
   name: string;

@@ -1,12 +1,13 @@
 # My Money — simple finance app
 
-A beginner-friendly Next.js app to track three things only:
+A beginner-friendly Next.js app to track:
 
 1. **Assets** — what you own
 2. **Liabilities** — what you owe
-3. **Goals** — what you are saving for
+3. **Salary and cash flow** — where each month's income goes
+4. **Goals** — what you are saving for
 
-Data is stored in Postgres through Prisma, so the same numbers show up on every browser and device you open the app in. You sign in with Google and unlock the app with a 4 digit PIN, and every account only ever sees its own assets, liabilities and goals.
+Data is stored in Postgres through Prisma, so the same numbers show up on every browser and device you open the app in. You sign in with Google and unlock the app with a 4 digit PIN, and every account only ever sees its own assets, liabilities, cash flow and goals.
 
 ## Modules
 
@@ -65,6 +66,14 @@ Credentials stay in your browser; they are sent to a small server route (`/api/g
 - Add, edit, view and delete liabilities (home, vehicle, personal, education, credit card, gold, business, friends/family, other).
 - Stores lender, original amount, outstanding amount, interest rate, start/end date, EMI and notes.
 - Shows total outstanding plus per-liability outstanding, type and EMI.
+
+### Salary and cash flow
+- Save a salary account identifier, default monthly take-home income and usual credit day. Only the last four account-number digits are stored.
+- Adjust the actual income for an individual month without changing earlier months.
+- Allocate salary as a fixed amount or a percentage of that month's income to categorized expenses, asset investments or liability payments.
+- Investment allocations fetch the latest available NAV or market price for funds, stocks, ETFs, bonds and gold, then add the calculated units, shares, bonds or grams to the asset.
+- Liability payments reduce the outstanding balance in the same database transaction that records the payment.
+- Monthly totals, remaining salary, expense-category analytics and a calculation history show where the income went.
 
 ### Goals
 - Create goals with name, description, target amount and target date.
