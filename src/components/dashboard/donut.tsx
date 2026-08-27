@@ -9,7 +9,19 @@ export function DonutChart({
 }) {
   const radius = 36;
   const circumference = 2 * Math.PI * radius;
-  let offset = 0;
+  const segments = slices.reduce<
+    Array<{
+      color: string;
+      index: number;
+      length: number;
+      offset: number;
+    }>
+  >((result, slice, index) => {
+    const length = (Math.max(slice.percent, 0) / 100) * circumference;
+    const previous = result.at(-1);
+    const offset = previous ? previous.offset + previous.length : 0;
+    return [...result, { color: slice.color, index, length, offset }];
+  }, []);
 
   return (
     <div className="relative mx-auto size-44">
@@ -22,25 +34,20 @@ export function DonutChart({
           stroke="#e2e8f0"
           strokeWidth="12"
         />
-        {slices.map((slice, index) => {
-          const length = (Math.max(slice.percent, 0) / 100) * circumference;
-          const circle = (
-            <circle
-              key={`${slice.color}-${index}`}
-              cx="50"
-              cy="50"
-              r={radius}
-              fill="none"
-              stroke={slice.color}
-              strokeWidth="12"
-              strokeDasharray={`${length} ${circumference - length}`}
-              strokeDashoffset={-offset}
-              strokeLinecap="butt"
-            />
-          );
-          offset += length;
-          return circle;
-        })}
+        {segments.map(({ color, index, length, offset }) => (
+          <circle
+            key={`${color}-${index}`}
+            cx="50"
+            cy="50"
+            r={radius}
+            fill="none"
+            stroke={color}
+            strokeWidth="12"
+            strokeDasharray={`${length} ${circumference - length}`}
+            strokeDashoffset={-offset}
+            strokeLinecap="butt"
+          />
+        ))}
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
         <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">

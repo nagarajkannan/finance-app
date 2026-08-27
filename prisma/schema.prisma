@@ -9,15 +9,15 @@ datasource db {
 
 /// One row per Google account that has signed in.
 model User {
-  id             String    @id @default(cuid())
-  googleId       String    @unique
-  email          String    @unique
-  name           String
-  image          String
-  pinHash        String?
-  pinUpdatedAt   DateTime?
-  pinFailedCount Int       @default(0)
-  pinLockedUntil DateTime?
+  id                String    @id @default(cuid())
+  googleId          String    @unique
+  email             String    @unique
+  name              String
+  image             String
+  pinHash           String?
+  pinUpdatedAt      DateTime?
+  pinFailedCount    Int       @default(0)
+  pinLockedUntil    DateTime?
   /// Encrypted Google refresh token, kept so exports can be uploaded to Drive without a browser.
   driveRefreshToken String?
   driveConnectedAt  DateTime?
@@ -25,8 +25,8 @@ model User {
   driveFolderId     String?
   driveLastExportAt DateTime?
   driveLastFileUrl  String?
-  createdAt      DateTime  @default(now())
-  lastLoginAt    DateTime  @default(now())
+  createdAt         DateTime  @default(now())
+  lastLoginAt       DateTime  @default(now())
 
   @@map("users")
 }
@@ -42,54 +42,54 @@ model AppState {
 }
 
 model Asset {
-  id            String   @id @default(cuid())
-  userId        String   @default("")
-  name          String
-  categoryId    String
-  type          String
-  institution   String
+  id             String   @id @default(cuid())
+  userId         String   @default("")
+  name           String
+  categoryId     String
+  type           String
+  institution    String
   investedAmount Float
-  currentValue  Float
-  startDate     String
-  notes         String
-  debtDetails   Json?
-  equityDetails Json?
+  currentValue   Float
+  startDate      String
+  notes          String
+  debtDetails    Json?
+  equityDetails  Json?
   goldDetails    Json?
-  source        Json?
-  createdAt     DateTime @default(now())
+  source         Json?
+  createdAt      DateTime @default(now())
 
   @@index([userId])
   @@map("assets")
 }
 
 model Liability {
-  id               String   @id @default(cuid())
-  userId           String   @default("")
-  name             String
-  type             String
-  lender           String
-  originalAmount   Float
+  id                String   @id @default(cuid())
+  userId            String   @default("")
+  name              String
+  type              String
+  lender            String
+  originalAmount    Float
   outstandingAmount Float
-  interestRate     Float
-  startDate        String
-  endDate          String
-  emiAmount        Float
-  notes            String
-  createdAt        DateTime @default(now())
+  interestRate      Float
+  startDate         String
+  endDate           String
+  emiAmount         Float
+  notes             String
+  createdAt         DateTime @default(now())
 
   @@index([userId])
   @@map("liabilities")
 }
 
 model Goal {
-  id            String   @id @default(cuid())
-  userId        String   @default("")
-  name          String
-  description   String
-  targetAmount  Float
-  targetDate    String
+  id             String   @id @default(cuid())
+  userId         String   @default("")
+  name           String
+  description    String
+  targetAmount   Float
+  targetDate     String
   linkedAssetIds Json
-  createdAt     DateTime @default(now())
+  createdAt      DateTime @default(now())
 
   @@index([userId])
   @@map("goals")
@@ -125,24 +125,78 @@ model Snapshot {
 
 /// One automatic snapshot rule per account.
 model SnapshotSchedule {
-  id           String    @id @default(cuid())
-  userId       String    @unique
-  enabled      Boolean   @default(false)
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  enabled       Boolean   @default(false)
   /// daily | weekly | monthly | quarterly | yearly | custom
-  frequency    String    @default("monthly")
+  frequency     String    @default("monthly")
   /// Local time of day the snapshot should be taken, as "HH:MM".
-  timeOfDay    String    @default("20:00")
+  timeOfDay     String    @default("20:00")
   /// Only used by the custom frequency: how many days between snapshots.
-  intervalDays Int       @default(14)
+  intervalDays  Int       @default(14)
   /// "YYYY-MM-DD"; empty means "from today".
-  startDate    String    @default("")
+  startDate     String    @default("")
   /// "YYYY-MM-DD"; empty means "no end".
-  endDate      String    @default("")
+  endDate       String    @default("")
   /// Upload an Excel export to Google Drive with every snapshot.
-  exportToDrive Boolean  @default(true)
-  lastRunAt    DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  exportToDrive Boolean   @default(true)
+  lastRunAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@map("snapshot_schedules")
+}
+
+model SalaryAccount {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  accountName     String
+  accountLast4    String
+  monthlyIncome   Float
+  salaryCreditDay Int
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("salary_accounts")
+}
+
+model SalaryMonth {
+  id        String   @id @default(cuid())
+  userId    String
+  month     String
+  income    Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, month])
+  @@index([userId])
+  @@map("salary_months")
+}
+
+model CashFlowTransaction {
+  id                         String   @id @default(cuid())
+  userId                     String
+  month                      String
+  date                       String
+  type                       String
+  category                   String
+  description                String
+  amount                     Float
+  allocationMode             String
+  allocationValue            Float
+  targetId                   String?
+  targetName                 String?
+  quantityAdded              Float?
+  quantityUnit               String?
+  pricePerUnit               Float?
+  assetValueBefore           Float?
+  assetValueAfter            Float?
+  liabilityOutstandingBefore Float?
+  liabilityOutstandingAfter  Float?
+  calculation                String
+  createdAt                  DateTime @default(now())
+
+  @@index([userId, month])
+  @@index([userId, type])
+  @@map("cash_flow_transactions")
 }
